@@ -474,12 +474,8 @@ def main():
         md_lines.extend([
             "",
             "## Structural Explanation",
-            "",
-            "<!-- Write 2-3 sentences explaining WHY these models disagree on this",
-            "     sample. Point to a specific feature interaction, non-monotonic",
-            "     relationship, or threshold effect the tree captured that the",
-            "     linear model could not. -->",
-            "",
+"The random forest likely reacted strongly to a threshold-style pattern around `contract_months = 1`, where short contracts can sharply increase churn risk when combined with other customer attributes such as no partner and no dependents. Logistic regression, by contrast, combines features additively, so the low monthly charges and moderate tenure pulled the predicted probability downward instead of allowing a sharp rule-like jump. This illustrates how the tree model can capture feature interactions and threshold effects that a linear model cannot represent as naturally."
+            
         ])
         with open("results/tree_vs_linear_disagreement.md", "w") as f:
             f.write("\n".join(md_lines))

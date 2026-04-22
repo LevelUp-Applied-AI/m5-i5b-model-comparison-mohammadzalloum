@@ -1,0 +1,32 @@
+2026-04-22 16:44:00,965 | INFO | Loaded configuration.
+2026-04-22 16:44:00,965 | INFO | Run directory: results_enhanced/runs/20260422_164400
+2026-04-22 16:44:00,975 | INFO | Data: 3600 train, 900 test, churn rate: 16.36%
+2026-04-22 16:44:00,975 | INFO | 6 model configurations defined: ['Dummy', 'LR_default', 'LR_balanced', 'DT_depth5', 'RF_default', 'RF_balanced']
+2026-04-22 16:44:03,285 | INFO | === Model Comparison Table (5-fold CV) ===
+2026-04-22 16:44:03,287 | INFO | 
+      model  accuracy_mean  accuracy_std  precision_mean  precision_std  recall_mean  recall_std  f1_mean   f1_std  pr_auc_mean  pr_auc_std
+ RF_default       0.861111      0.004730        0.734065       0.042749     0.239403    0.034579 0.359257 0.039426     0.513682    0.033541
+RF_balanced       0.808611      0.017019        0.426716       0.035564     0.472012    0.015513 0.447513 0.024179     0.470732    0.039854
+ LR_default       0.854167      0.006334        0.713508       0.088716     0.195219    0.031552 0.303163 0.034254     0.465613    0.015835
+LR_balanced       0.707500      0.015331        0.320913       0.015107     0.702810    0.024419 0.440420 0.016560     0.462957    0.016348
+  DT_depth5       0.857222      0.006419        0.644447       0.038445     0.285180    0.044748 0.393519 0.044538     0.449628    0.027493
+      Dummy       0.836389      0.000556        0.000000       0.000000     0.000000    0.000000 0.000000 0.000000     0.163611    0.000556
+2026-04-22 16:44:04,016 | INFO | Best model by pr_auc_mean: RF_default
+2026-04-22 16:44:04,048 | INFO | --- Tree-vs-linear disagreement (sample idx=4060) ---
+2026-04-22 16:44:04,048 | INFO | RF P(churn=1)=0.600 | LR P(churn=1)=0.170 | |diff|=0.430 | true label=0
+2026-04-22 16:44:04,048 | INFO | Saved to results_enhanced/tree_vs_linear_disagreement.md
+2026-04-22 16:44:04,081 | INFO | Saved test predictions to results_enhanced/test_predictions.csv (900 rows)
+2026-04-22 16:44:04,116 | INFO | Saved calibration metrics to results_enhanced/calibration_metrics.csv
+2026-04-22 16:44:04,117 | INFO | 
+      model  brier_score      ece  pr_auc_test
+ RF_default     0.112856 0.034550     0.448395
+  DT_depth5     0.119047 0.034270     0.365214
+ LR_default     0.121154 0.028893     0.391879
+RF_balanced     0.132495 0.108432     0.419411
+      Dummy     0.163333 0.163333     0.163333
+LR_balanced     0.203114 0.260391     0.388054
+2026-04-22 16:44:04,317 | INFO | Best threshold by test-set F1: 0.15 (precision=0.316, recall=0.796, f1=0.453)
+2026-04-22 16:44:04,349 | INFO | Saved error analysis to results_enhanced/error_analysis.md
+2026-04-22 16:44:04,350 | INFO | Error type counts: {'TN': 737, 'FN': 123, 'TP': 24, 'FP': 16}
+2026-04-22 16:44:04,352 | INFO | --- All results saved to results_enhanced and snapshot copied to results_enhanced/runs/20260422_164400 ---
+2026-04-22 16:44:04,352 | INFO | Write your decision memo in the PR description (Task 10).

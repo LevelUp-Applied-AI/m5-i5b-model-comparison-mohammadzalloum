@@ -4,8 +4,8 @@ A reproducible machine learning workflow for comparing baseline, linear, and tre
 
 This repository contains two implementations:
 
-- **`model_comparison.py`** — the original assignment solution that completes the required 9 tasks.
-- **`model_comparison_enhanced.py`** — an extended version that preserves the original structure while adding stronger analysis and engineering features such as threshold tuning, error analysis, calibration metrics, run logging, timestamped run folders, and JSON-based configuration.
+- **`model_comparison.py`** — the original assignment solution that completes the required 9 tasks and writes the required assignment artifacts to **`results/`**.
+- **`model_comparison_enhanced.py`** — an extended version that preserves the original structure while adding stronger analysis and engineering features such as threshold tuning, error analysis, calibration metrics, run logging, timestamped run folders, and JSON-based configuration. Its outputs are written to **`results_enhanced/`**.
 
 ## Project Goals
 
@@ -75,6 +75,13 @@ In addition to everything above, the enhanced version adds:
 │   ├── calibration.png
 │   ├── best_model.joblib
 │   ├── experiment_log.csv
+│   └── tree_vs_linear_disagreement.md
+├── results_enhanced/
+│   ├── comparison_table.csv
+│   ├── pr_curves.png
+│   ├── calibration.png
+│   ├── best_model.joblib
+│   ├── experiment_log.csv
 │   ├── tree_vs_linear_disagreement.md
 │   ├── test_predictions.csv
 │   ├── calibration_metrics.csv
@@ -132,10 +139,22 @@ source .venv/bin/activate
 python model_comparison.py
 ```
 
+This writes the required assignment outputs to:
+
+```text
+results/
+```
+
 ### Run the enhanced version
 
 ```bash
 python model_comparison_enhanced.py
+```
+
+This writes the enhanced outputs to:
+
+```text
+results_enhanced/
 ```
 
 ## Optional Configuration
@@ -165,7 +184,7 @@ Then edit values such as:
 ```json
 {
   "random_state": 42,
-  "results_root": "results",
+  "results_root": "results_enhanced",
   "n_splits": 5,
   "selection_metric": "pr_auc_mean"
 }
@@ -221,6 +240,8 @@ The workflow includes multiple diagnostic layers:
 
 ### Required assignment outputs
 
+These are produced by `model_comparison.py` and saved in `results/`:
+
 - `results/comparison_table.csv`
 - `results/pr_curves.png`
 - `results/calibration.png`
@@ -228,15 +249,27 @@ The workflow includes multiple diagnostic layers:
 - `results/experiment_log.csv`
 - `results/tree_vs_linear_disagreement.md`
 
-### Additional enhanced outputs
+### Enhanced outputs
 
-- `results/test_predictions.csv`
-- `results/calibration_metrics.csv`
-- `results/threshold_tuning.csv`
-- `results/threshold_sweep.png`
-- `results/error_analysis.md`
-- `results/run_metadata.json`
-- `results/runs/<timestamp>/run.log`
+These are produced by `model_comparison_enhanced.py` and saved in `results_enhanced/`:
+
+- `results_enhanced/comparison_table.csv`
+- `results_enhanced/pr_curves.png`
+- `results_enhanced/calibration.png`
+- `results_enhanced/best_model.joblib`
+- `results_enhanced/experiment_log.csv`
+- `results_enhanced/tree_vs_linear_disagreement.md`
+- `results_enhanced/test_predictions.csv`
+- `results_enhanced/calibration_metrics.csv`
+- `results_enhanced/threshold_tuning.csv`
+- `results_enhanced/threshold_sweep.png`
+- `results_enhanced/error_analysis.md`
+- `results_enhanced/run_metadata.json`
+- `results_enhanced/runs/<timestamp>/run.log`
+
+## Results vs. Results Enhanced
+
+The `results/` directory contains the required base-task outputs produced by `model_comparison.py`, including the comparison table, PR curves, calibration plot, saved best model, experiment log, and tree-vs-linear disagreement analysis. The `results_enhanced/` directory contains the outputs of `model_comparison_enhanced.py`, which preserves the same core workflow and model selection outcome while adding extra analysis layers such as threshold tuning, calibration metrics, full test-set prediction exports, error analysis, run metadata, and timestamped run folders. In other words, `results/` is the assignment submission output, while `results_enhanced/` is an extended analysis and engineering version built on top of the same underlying comparison pipeline.
 
 ## Example Interpretation
 
@@ -246,6 +279,10 @@ A typical run of the project leads to conclusions like these:
 - **Balanced models** often increase **recall** at the default 0.5 threshold, but this does not always improve **threshold-independent ranking quality**.
 - **Calibration analysis** helps determine whether model probabilities can support prioritization and early warning.
 - **Threshold tuning** is useful when business capacity is limited and the retention team cannot contact every predicted churner.
+
+## Suggested Structural Explanation for `results_enhanced/tree_vs_linear_disagreement.md`
+
+The disagreement is likely driven by a threshold-style pattern around `contract_months = 1`, which the random forest can treat as a strong churn signal when combined with the rest of the feature profile. In this sample, the tree model assigned a much higher churn probability than logistic regression, suggesting that the tree captured a rule-like interaction that the linear model smoothed out through additive feature effects. This interpretation is also consistent with the enhanced error analysis, where the same sample appeared among the highest-confidence false positives, showing that the random forest can sometimes overreact to short-contract risk patterns even when the true label is non-churn.
 
 ## Why the Enhanced Version Exists
 
@@ -267,6 +304,6 @@ If you want to extend the project further, good next steps include:
 ## Notes
 
 - Generated result files are typically ignored by Git through `.gitignore`.
-- The enhanced workflow intentionally keeps canonical outputs in `results/` for compatibility, while also saving timestamped snapshots under `results/runs/`.
+- The enhanced workflow writes its canonical outputs to `results_enhanced/`, with timestamped snapshots saved under `results_enhanced/runs/`.
 - The original `model_comparison.py` file remains part of the repository and is not replaced by the enhanced version.
 - `setup.sh` is provided as a convenience helper for local environment setup.

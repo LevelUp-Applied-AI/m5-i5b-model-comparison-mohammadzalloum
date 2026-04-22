@@ -64,7 +64,7 @@ NUMERIC_FEATURES = [
 DEFAULT_CONFIG = {
     "random_state": 42,
     "data_path": "data/telecom_churn.csv",
-    "results_root": "results",
+    "results_root": "results_enhanced",
     "n_splits": 5,
     "selection_metric": "pr_auc_mean",
     "calibration_bins": 10,

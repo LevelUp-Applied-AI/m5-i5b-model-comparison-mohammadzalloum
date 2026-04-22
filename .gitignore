@@ -14,3 +14,13 @@ results/**/*.joblib
 results/**/*.json
 results/**/*.md
 results/**/*.log
+
+results_enhanced/*.csv
+results_enhanced/*.png
+results_enhanced/*.joblib
+results_enhanced/**/*.csv
+results_enhanced/**/*.png
+results_enhanced/**/*.joblib
+results_enhanced/**/*.json
+results_enhanced/**/*.md
+results_enhanced/**/*.log

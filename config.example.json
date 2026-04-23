@@ -1,0 +1,48 @@
+{
+  "random_state": 42,
+  "data_path": "data/telecom_churn.csv",
+  "results_root": "results",
+  "n_splits": 5,
+  "selection_metric": "pr_auc_mean",
+  "calibration_bins": 10,
+  "error_analysis_top_n": 10,
+  "thresholds": [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9],
+  "models": [
+    {
+      "name": "Dummy",
+      "type": "dummy",
+      "scaler": "passthrough",
+      "params": {"strategy": "most_frequent"}
+    },
+    {
+      "name": "LR_default",
+      "type": "logistic_regression",
+      "scaler": "standard",
+      "params": {"max_iter": 1000, "random_state": 42}
+    },
+    {
+      "name": "LR_balanced",
+      "type": "logistic_regression",
+      "scaler": "standard",
+      "params": {"class_weight": "balanced", "max_iter": 1000, "random_state": 42}
+    },
+    {
+      "name": "DT_depth5",
+      "type": "decision_tree",
+      "scaler": "passthrough",
+      "params": {"max_depth": 5, "random_state": 42}
+    },
+    {
+      "name": "RF_default",
+      "type": "random_forest",
+      "scaler": "passthrough",
+      "params": {"n_estimators": 100, "max_depth": 10, "random_state": 42}
+    },
+    {
+      "name": "RF_balanced",
+      "type": "random_forest",
+      "scaler": "passthrough",
+      "params": {"n_estimators": 100, "max_depth": 10, "class_weight": "balanced", "random_state": 42}
+    }
+  ]
+}

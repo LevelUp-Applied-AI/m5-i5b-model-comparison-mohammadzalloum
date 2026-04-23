@@ -824,12 +824,7 @@ def main():
         md_lines.extend([
             "",
             "## Structural Explanation",
-            "",
-            "<!-- Write 2-3 sentences explaining WHY these models disagree on this",
-            "     sample. Point to a specific feature interaction, non-monotonic",
-            "     relationship, or threshold effect the tree captured that the",
-            "     linear model could not. -->",
-            "",
+            "The disagreement is likely driven by a threshold-style pattern around `contract_months = 1`, which the random forest can treat as a strong churn signal when combined with the rest of the feature profile. In this sample, the tree model assigned a much higher churn probability (`0.5998`) than logistic regression (`0.1700`), suggesting that the tree captured a rule-like interaction that the linear model smoothed out through additive feature effects. This interpretation is also consistent with the enhanced error analysis, where the same sample appeared among the highest-confidence false positives, showing that the random forest can sometimes overreact to short-contract risk patterns even when the true label is non-churn. :contentReference[oaicite:2]{index=2} :contentReference[oaicite:3]{index=3}"
         ])
         with open(disagreement_md_path, "w", encoding="utf-8") as f:
             f.write("\n".join(md_lines))

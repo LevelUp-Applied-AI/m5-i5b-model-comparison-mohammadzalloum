@@ -390,6 +390,308 @@ def find_tree_vs_linear_disagreement(rf_model, lr_model, X_test, y_test,
     }
 
 
+
+def sweep_thresholds_and_recommend(
+    model,
+    X_test,
+    y_test,
+    thresholds=None,
+    max_contacts=150,
+    customer_base=10000,
+    output_csv="results/threshold_metrics.csv"
+):
+    """Tier 1: evaluate thresholds and choose the best feasible one."""
+    if thresholds is None:
+        thresholds = np.arange(0.10, 0.91, 0.05)
+
+    y_proba = model.predict_proba(X_test)[:, 1]
+    rows = []
+
+    for threshold in thresholds:
+        y_pred = (y_proba >= threshold).astype(int)
+        alert_rate = float(y_pred.mean())
+
+        rows.append({
+            "threshold": round(float(threshold), 2),
+            "precision": precision_score(y_test, y_pred, zero_division=0),
+            "recall": recall_score(y_test, y_pred, zero_division=0),
+            "f1": f1_score(y_test, y_pred, zero_division=0),
+            "alerts_per_1000": alert_rate * 1000,
+            "expected_alerts_per_10000": alert_rate * customer_base,
+        })
+
+    threshold_df = pd.DataFrame(rows)
+    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+    threshold_df.to_csv(output_csv, index=False)
+
+    feasible = threshold_df[
+        threshold_df["expected_alerts_per_10000"] <= max_contacts
+    ].copy()
+
+    recommendation = None
+    if not feasible.empty:
+        feasible = feasible.sort_values(
+            ["recall", "f1", "expected_alerts_per_10000", "threshold"],
+            ascending=[False, False, False, False]
+        )
+        recommendation = feasible.iloc[0].to_dict()
+
+    return threshold_df, recommendation
+
+
+def plot_threshold_sweep(
+    threshold_df,
+    recommendation=None,
+    output_path="results/threshold_sweep.png"
+):
+    """Plot precision, recall, F1, and alerts per 1,000 vs threshold."""
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    ax1.plot(
+        threshold_df["threshold"],
+        threshold_df["precision"],
+        marker="o",
+        label="Precision"
+    )
+    ax1.plot(
+        threshold_df["threshold"],
+        threshold_df["recall"],
+        marker="o",
+        label="Recall"
+    )
+    ax1.plot(
+        threshold_df["threshold"],
+        threshold_df["f1"],
+        marker="o",
+        label="F1"
+    )
+
+    ax1.set_xlabel("Threshold")
+    ax1.set_ylabel("Score")
+    ax1.set_ylim(0, 1.05)
+
+    ax2 = ax1.twinx()
+    ax2.plot(
+        threshold_df["threshold"],
+        threshold_df["alerts_per_1000"],
+        marker="s",
+        linestyle="--",
+        label="Alerts per 1,000"
+    )
+    ax2.axhline(
+        15,
+        linestyle=":",
+        label="Capacity (15 alerts / 1,000)"
+    )
+    ax2.set_ylabel("Alerts per 1,000 customers")
+
+    if recommendation is not None:
+        ax1.axvline(
+            recommendation["threshold"],
+            linestyle="--"
+        )
+
+    handles1, labels1 = ax1.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(handles1 + handles2, labels1 + labels2, loc="best")
+
+    ax1.set_title("Threshold Sweep for Recommended Model")
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+
+
+def save_threshold_recommendation(
+    recommendation,
+    model_name,
+    output_path="results/threshold_recommendation.md"
+):
+    """Write a memo-ready threshold recommendation section."""
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    if recommendation is None:
+        text = (
+            "# Threshold Recommendation\n\n"
+            "No tested threshold satisfied the capacity constraint of "
+            "150 contacts per 10,000 customers. Consider testing higher "
+            "thresholds or revisiting the outreach limit.\n"
+        )
+    else:
+        text = (
+            "# Threshold Recommendation\n\n"
+            f"For **{model_name}**, the recommended operating threshold is "
+            f"**{recommendation['threshold']:.2f}**. "
+            f"At this threshold, the model is expected to generate about "
+            f"**{recommendation['alerts_per_1000']:.1f} alerts per 1,000 customers** "
+            f"(approximately **{recommendation['expected_alerts_per_10000']:.0f} alerts "
+            f"per 10,000 customers**), which fits Petra Telecom's monthly outreach "
+            f"capacity of **150 contacts**. Under this constraint, this threshold gives "
+            f"the **highest recall** among the tested options while keeping outreach "
+            f"volume operationally feasible. The business trade-off is that lowering "
+            f"the threshold would catch more churners but would exceed team capacity, "
+            f"while raising it further would reduce wasted effort but miss more "
+            f"at-risk customers.\n"
+        )
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+
+def compute_permutation_importance_top3(
+    fitted_models,
+    results_df,
+    X_test,
+    y_test,
+    n_repeats=10,
+    output_csv="results/permutation_importance.csv"
+):
+    """Tier 2: permutation importance for top 3 models by PR-AUC."""
+    top3_names = (
+        results_df.sort_values("pr_auc_mean", ascending=False)
+        .head(3)["model"]
+        .tolist()
+    )
+
+    rows = []
+
+    for name in top3_names:
+        result = permutation_importance(
+            fitted_models[name],
+            X_test,
+            y_test,
+            n_repeats=n_repeats,
+            random_state=42,
+            scoring="average_precision"
+        )
+
+        for feature, mean_val, std_val in zip(
+            NUMERIC_FEATURES,
+            result.importances_mean,
+            result.importances_std
+        ):
+            rows.append({
+                "model": name,
+                "feature": feature,
+                "importance_mean": mean_val,
+                "importance_std": std_val,
+            })
+
+    importance_df = pd.DataFrame(rows)
+    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+    importance_df.to_csv(output_csv, index=False)
+
+    return importance_df, top3_names
+
+
+def plot_permutation_importance_comparison(
+    importance_df,
+    model_names,
+    output_path="results/permutation_importance.png"
+):
+    """Grouped bar chart for top 8 features across top 3 models."""
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    top_features = (
+        importance_df.groupby("feature")["importance_mean"]
+        .mean()
+        .sort_values(ascending=False)
+        .head(8)
+        .index.tolist()
+    )
+
+    plot_df = importance_df[
+        importance_df["feature"].isin(top_features)
+    ].copy()
+
+    pivot_df = plot_df.pivot(
+        index="feature",
+        columns="model",
+        values="importance_mean"
+    )
+
+    pivot_df = pivot_df.reindex(top_features)
+    pivot_df = pivot_df[[m for m in model_names if m in pivot_df.columns]]
+
+    ax = pivot_df.plot(kind="bar", figsize=(11, 6))
+    ax.set_title("Permutation Importance Comparison Across Top 3 Models")
+    ax.set_xlabel("Feature")
+    ax.set_ylabel("Mean importance drop (Average Precision)")
+    ax.legend(title="Model")
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+from sklearn.inspection import permutation_importance
+def save_permutation_importance_summary(
+    importance_df,
+    output_path="results/permutation_importance_summary.md"
+):
+    """Write the interpretation paragraph for Tier 2."""
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    model_to_top = {}
+    for model, grp in importance_df.groupby("model"):
+        top_features = (
+            grp.sort_values("importance_mean", ascending=False)["feature"]
+            .head(5)
+            .tolist()
+        )
+        model_to_top[model] = top_features
+
+    model_names = list(model_to_top.keys())
+
+    lr_name = next((m for m in model_names if m.startswith("LR")), None)
+    rf_name = next((m for m in model_names if m.startswith("RF")), None)
+
+    if lr_name and rf_name:
+        model_a, model_b = lr_name, rf_name
+    elif len(model_names) >= 2:
+        model_a, model_b = model_names[0], model_names[1]
+    else:
+        model_a, model_b = None, None
+
+    if model_a and model_b:
+        overlap = sorted(set(model_to_top[model_a]) & set(model_to_top[model_b]))
+        only_a = [f for f in model_to_top[model_a] if f not in overlap]
+        only_b = [f for f in model_to_top[model_b] if f not in overlap]
+
+        overlap_text = ", ".join(overlap[:3]) if overlap else "limited overlap"
+        only_a_text = ", ".join(only_a[:3]) if only_a else "shared predictors"
+        only_b_text = ", ".join(only_b[:3]) if only_b else "shared predictors"
+
+        paragraph = (
+            "# Permutation Importance Interpretation\n\n"
+            f"Comparing **{model_a}** and **{model_b}**, the models agree most "
+            f"clearly on **{overlap_text}** as important signals. At the same time, "
+            f"**{model_a}** gives relatively more weight to **{only_a_text}**, while "
+            f"**{model_b}** emphasizes **{only_b_text}**. This suggests the model "
+            f"families are not using exactly the same decision process: linear models "
+            f"usually reward broad additive trends, while tree-based models can place "
+            f"more value on interactions, split points, and threshold-style effects.\n"
+        )
+    else:
+        paragraph = (
+            "# Permutation Importance Interpretation\n\n"
+            "The feature rankings differ across the evaluated models, which suggests "
+            "that each model family is relying on a somewhat different decision process "
+            "even when headline performance is similar.\n"
+        )
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(paragraph)
+
+
 def main():
     """Orchestrate all 9 integration tasks. Run with: python model_comparison.py"""
     os.makedirs("results", exist_ok=True)
@@ -440,6 +742,35 @@ def main():
 
     # Task 8: Experiment log
     log_experiment(results_df)
+
+
+    # Challenge Tier 1: Threshold optimization for deployment
+    threshold_df, threshold_recommendation = sweep_thresholds_and_recommend(
+        fitted_models[best_name],
+        X_test,
+        y_test
+    )
+    plot_threshold_sweep(threshold_df, threshold_recommendation)
+    save_threshold_recommendation(threshold_recommendation, best_name)
+
+    if threshold_recommendation is not None:
+        print(
+            f"\nThreshold recommendation for {best_name}: "
+            f"{threshold_recommendation['threshold']:.2f} "
+            f"(expected alerts per 10,000 = "
+            f"{threshold_recommendation['expected_alerts_per_10000']:.0f})"
+        )
+
+    # Challenge Tier 2: Permutation importance
+    importance_df, top3_names = compute_permutation_importance_top3(
+        fitted_models,
+        results_df,
+        X_test,
+        y_test
+    )
+    plot_permutation_importance_comparison(importance_df, top3_names)
+    save_permutation_importance_summary(importance_df)
+
 
     # Task 9: Tree-vs-linear disagreement
     rf_pipeline = fitted_models["RF_default"]
